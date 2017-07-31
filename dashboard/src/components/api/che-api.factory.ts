@@ -74,7 +74,6 @@ export class CheAPI {
     this.cheUser = cheUser;
   }
 
-
   /**
    * The Che Workspace API
    * @returns {CheAPI.cheWorkspace}

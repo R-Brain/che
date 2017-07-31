@@ -20,7 +20,6 @@ import {RouteHistory} from '../../../components/routing/route-history.service';
  */
 export class LoadFactoryController {
   private cheAPI: CheAPI;
-  private $websocket: ng.websocket.IWebSocketProvider;
   private $timeout: ng.ITimeoutService;
   private $mdDialog: ng.material.IDialogService;
   private loadFactoryService: LoadFactoryService;
@@ -35,8 +34,6 @@ export class LoadFactoryController {
   private workspace: che.IWorkspace;
   private projectsToImport: number;
 
-  private websocketReconnect: number;
-
   private factory: che.IFactory;
 
 
@@ -44,11 +41,10 @@ export class LoadFactoryController {
    * Default constructor that is using resource
    * @ngInject for Dependency injection
    */
-  constructor(cheAPI: CheAPI, $websocket: ng.websocket.IWebSocketProvider, $route: ng.route.IRouteService, $timeout: ng.ITimeoutService,
+  constructor(cheAPI: CheAPI, $route: ng.route.IRouteService, $timeout: ng.ITimeoutService,
               $mdDialog: ng.material.IDialogService, loadFactoryService: LoadFactoryService, lodash: _.LoDashStatic, cheNotification: CheNotification,
               $location: ng.ILocationService, routeHistory: RouteHistory, $window: ng.IWindowService) {
     this.cheAPI = cheAPI;
-    this.$websocket = $websocket;
     this.$timeout = $timeout;
     this.$mdDialog = $mdDialog;
     this.loadFactoryService = loadFactoryService;
@@ -60,9 +56,6 @@ export class LoadFactoryController {
 
     this.workspaces = [];
     this.workspace = {};
-
-    this.websocketReconnect = 50;
-
     this.hideMenuAndFooter();
 
     this.loadFactoryService.resetLoadProgress();
@@ -191,7 +184,7 @@ export class LoadFactoryController {
    * @param error error to be handled
    */
   handleError(error: any): void {
-    if (error.data.message) {
+    if (error && error.data.message) {
       this.getLoadingSteps()[this.getCurrentProgressStep()].logs = error.data.message;
       this.cheNotification.showError(error.data.message);
     }
@@ -295,15 +288,14 @@ export class LoadFactoryController {
    */
   startWorkspace(workspace: che.IWorkspace): void {
     this.workspace = workspace;
-    var bus = this.cheAPI.getWebsocket().getBus();
 
     if (workspace.status === 'RUNNING') {
       this.loadFactoryService.setCurrentProgressStep(4);
-      this.importProjects(bus);
+      this.importProjects();
       return;
     }
 
-    this.subscribeOnEvents(workspace, bus);
+    this.subscribeOnEvents(workspace);
 
     this.$timeout(() => {
       this.doStartWorkspace(workspace);
@@ -321,7 +313,7 @@ export class LoadFactoryController {
 
     startWorkspacePromise.then((data:  any) => {
       console.log('Workspace started', data);
-    }, (error) => {
+    }, (error: any) => {
       let errorMessage;
 
       if (!error || !error.data) {
@@ -344,33 +336,10 @@ export class LoadFactoryController {
     });
   }
 
-  subscribeOnEvents(data: any, bus: any): void {
-    // get channels
-    let statusLink = this.lodash.find(data.links, (link: any) => {
-      return link.rel === 'environment.status_channel';
-    });
-
-    let outputLink = this.lodash.find(data.links, (link: any) => {
-      return link.rel === 'environment.output_channel';
-    });
-
+  subscribeOnEvents(data: any): void {
     let workspaceId = data.id;
 
-    let agentChannel = 'workspace:' + data.id + ':ext-server:output';
-    let statusChannel = statusLink ? statusLink.parameters[0].defaultValue : null;
-    let outputChannel = outputLink ? outputLink.parameters[0].defaultValue : null;
-
-    bus.subscribe(outputChannel, (message: any) => {
-      message = this.getDisplayMachineLog(message);
-      if (this.getLoadingSteps()[this.getCurrentProgressStep()].logs.length > 0) {
-        this.getLoadingSteps()[this.getCurrentProgressStep()].logs = this.getLoadingSteps()[this.getCurrentProgressStep()].logs + '\n' + message;
-      } else {
-        this.getLoadingSteps()[this.getCurrentProgressStep()].logs = message;
-      }
-    });
-
-    // for now, display log of status channel in case of errors
-    bus.subscribe(statusChannel, (message: any) => {
+    let environmentStatusHandler = (message: any) => {
       if (message.eventType === 'DESTROYED' && message.workspaceId === data.id) {
         this.getLoadingSteps()[this.getCurrentProgressStep()].hasError = true;
 
@@ -395,10 +364,23 @@ export class LoadFactoryController {
         );
       }
       console.log('Status channel of workspaceID', workspaceId, message);
-    });
+    }
 
-    // subscribe to workspace events
-    bus.subscribe('workspace:' + workspaceId, (message: any) => {
+    this.cheAPI.getWorkspace().getMasterApi().subscribeEnvironmentStatus(workspaceId, environmentStatusHandler);
+
+    let environmentOutputHandler = (message: any) => {
+      message = this.getDisplayMachineLog(message);
+      if (this.getLoadingSteps()[this.getCurrentProgressStep()].logs.length > 0) {
+        this.getLoadingSteps()[this.getCurrentProgressStep()].logs = this.getLoadingSteps()[this.getCurrentProgressStep()].logs + '\n' + message;
+      } else {
+        this.getLoadingSteps()[this.getCurrentProgressStep()].logs = message;
+      }
+    };
+
+    //let machines = this.lodash.pluck
+    // TODO this.cheAPI.getWorkspace().getMasterApi().subscribeEnvironmentOutput(workspaceId, environmentOutputHandler);
+
+    let workspaceStatusHandler = (message: any) => {
 
       if (message.eventType === 'ERROR' && message.workspaceId === workspaceId) {
         // need to show the error
@@ -415,9 +397,11 @@ export class LoadFactoryController {
       if (message.eventType === 'RUNNING' && message.workspaceId === workspaceId) {
         this.finish();
       }
-    });
+    };
 
-    bus.subscribe(agentChannel, (message: any) => {
+    this.cheAPI.getWorkspace().getMasterApi().subscribeWorkspaceStatus(workspaceId, workspaceStatusHandler);
+
+    let wsAgentHandler = (message: any) => {
       let agentStep = 3;
       if (this.loadFactoryService.getCurrentProgressStep() < agentStep) {
         this.loadFactoryService.setCurrentProgressStep(agentStep);
@@ -428,8 +412,9 @@ export class LoadFactoryController {
       } else {
         this.getLoadingSteps()[agentStep].logs = message;
       }
-    });
+    };
 
+    this.cheAPI.getWorkspace().getMasterApi().subscribeWsAgentOutput(workspaceId, wsAgentHandler);
   }
 
   /**
@@ -449,18 +434,16 @@ export class LoadFactoryController {
 
   /**
    * Performs importing projects.
-   *
-   * @param bus
    */
-  importProjects(bus: any): void {
+  importProjects(): void {
     let promise = this.cheAPI.getWorkspace().fetchWorkspaceDetails(this.workspace.id);
     promise.then(() => {
       let projects = this.cheAPI.getWorkspace().getWorkspacesById().get(this.workspace.id).config.projects;
-      this.detectProjectsToImport(projects, bus);
+      this.detectProjectsToImport(projects);
     }, (error: any) => {
       if (error.status !== 304) {
         let projects = this.cheAPI.getWorkspace().getWorkspacesById().get(this.workspace.id).config.projects;
-        this.detectProjectsToImport(projects, bus);
+        this.detectProjectsToImport(projects);
       } else {
         this.handleError(error);
       }
@@ -471,15 +454,14 @@ export class LoadFactoryController {
    * Detects the projects to be imported.
    *
    * @param projects projects list
-   * @param bus
    */
-  detectProjectsToImport(projects: Array<che.IProject>, bus: any): void {
+  detectProjectsToImport(projects: Array<che.IProject>): void {
     this.projectsToImport = 0;
 
     projects.forEach((project: che.IProject) => {
       if (!this.isProjectOnFileSystem(project)) {
         this.projectsToImport++;
-        this.importProject(this.workspace.id, project, bus);
+        this.importProject(this.workspace.id, project);
       }
     });
 
@@ -511,9 +493,8 @@ export class LoadFactoryController {
    *
    * @param workspaceId workspace id, where project should be imported to
    * @param project project to be imported
-   * @param bus
    */
-  importProject(workspaceId: string, project: che.IProject, bus: any): void {
+  importProject(workspaceId: string, project: che.IProject): void {
     var promise;
     // websocket channel
     var channel = 'importProject:output';
@@ -529,7 +510,7 @@ export class LoadFactoryController {
     // needs to update configuration of the project
     let updatePromise = promise.then(() => {
       projectService.updateProject(project.name, project);
-    }, (error) => {
+    }, (error: any) => {
       this.handleError(error);
     });
 

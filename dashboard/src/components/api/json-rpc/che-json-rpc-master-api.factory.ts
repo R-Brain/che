@@ -9,12 +9,14 @@
  *   Codenvy, S.A. - initial API and implementation
  */
 'use strict';
-import {WebsocketClient} from './websocket-client';
 import {CheJsonRpcApiClient, IChannel} from './che-json-rpc-api-service';
+import {ICommunicationClient} from './json-rpc-client';
 
 enum MasterChannels {
   ENVIRONMENT_OUTPUT, ENVIRONMENT_STATUS, WS_AGENT_OUTPUT, WORKSPACE_STATUS
 }
+
+const websocketMasterApi: string = '/wsmaster/websocket/';
 
 /**
  *
@@ -25,9 +27,8 @@ export class CheJsonRpcMasterApi {
   private cheJsonRpcApi: CheJsonRpcApiClient;
   private channels: Map<MasterChannels, IChannel>;
 
-  constructor ($websocket: ng.websocket.IWebSocketProvider, $q: ng.IQService) {
-    let wsClient = new WebsocketClient($websocket, $q);
-    this.cheJsonRpcApi = new CheJsonRpcApiClient(wsClient);
+  constructor (client: ICommunicationClient) {
+    this.cheJsonRpcApi = new CheJsonRpcApiClient(client);
 
     this.channels = new Map<MasterChannels, IChannel>();
     this.channels.set(MasterChannels.ENVIRONMENT_OUTPUT, {
@@ -51,8 +52,13 @@ export class CheJsonRpcMasterApi {
     this.channels.set(MasterChannels.WORKSPACE_STATUS, {
       subscription: 'event:workspace-status:subscribe',
       unsubscription: 'event:workspace-status:un-subscribe',
-      notification: 'event:workspace-status:change'
+      notification: 'event:workspace-status:changed'
     });
+  }
+
+  connect(entrypoint: string): ng.IPromise<any> {
+    let applicationID: number = new Date().getTime();
+    return this.cheJsonRpcApi.connect(entrypoint + websocketMasterApi + applicationID);
   }
 
   subscribeEnvironmentOutput(workspaceId: string, machineName: string, callback: Function): void {
@@ -94,7 +100,12 @@ export class CheJsonRpcMasterApi {
   subscribeWorkspaceStatus(workspaceId: string, callback: Function): void {
     let channel = this.channels.get(MasterChannels.WORKSPACE_STATUS);
     let params = [workspaceId];
-    this.cheJsonRpcApi.subscribe(channel.subscription, channel.notification, callback, params);
+    let statusHandler = (message) => {
+      if (workspaceId === message.workspaceId) {
+        callback(message);
+      }
+    }
+    this.cheJsonRpcApi.subscribe(channel.subscription, channel.notification, statusHandler, params);
   }
 
   unSubscribeWorkspaceStatus(workspaceId: string, callback: Function): void {

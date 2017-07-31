@@ -25,8 +25,10 @@ export class IChannel {
 export class CheJsonRpcApiClient {
 
   private jsonRpcClient: JsonRpcClient;
+  private client: ICommunicationClient;
 
   constructor (client: ICommunicationClient) {
+    this.client = client;
     this.jsonRpcClient = new JsonRpcClient(client);
   }
 
@@ -38,5 +40,9 @@ export class CheJsonRpcApiClient {
   unsubscribe(event: string, notification: string, handler: Function, params?: any): void {
     this.jsonRpcClient.removeNotificationHandler(event, handler);
     this.jsonRpcClient.notify(event);
+  }
+
+  connect(entrypoint: string): ng.IPromise<any> {
+    return this.client.connect(entrypoint);
   }
 }

@@ -20,15 +20,18 @@ import {CheRemoteProject} from './che-remote-project';
  * @author Florent Benoit
  */
 export class CheRemote {
+  private $resource: ng.resource.IResourceService;
+  private $q: ng.IQService;
+  private $websocket: ng.websocket.IWebSocketProvider;
 
   /**
    * Default constructor that is using resource
    * @ngInject for Dependency injection
    */
-  constructor($resource, $q, cheWebsocket) {
+  constructor($resource: ng.resource.IResourceService, $q: ng.IQService, $websocket: ng.websocket.IWebSocketProvider) {
     this.$resource = $resource;
     this.$q = $q;
-    this.cheWebsocket = cheWebsocket;
+    this.$websocket = $websocket;
   }
 
   /**
@@ -38,7 +41,7 @@ export class CheRemote {
    * @param password the password on the remote server
    * @returns {*|promise|N|n}
    */
-  newAuth(url, login, password) {
+  newAuth(url: string, login: string, password: string) {
     let remoteLogin = new CheRemoteLogin(this.$resource, url);
     return remoteLogin.authenticate(login, password);
   }
@@ -49,8 +52,8 @@ export class CheRemote {
    * @param token
    * @returns {*}
    */
-  newWorkspace(remoteConfig) {
-    return new CheRemoteWorkspace(this.$resource, this.$q, this.cheWebsocket, remoteConfig);
+  newWorkspace(remoteConfig: any) {
+    return new CheRemoteWorkspace(this.$resource, this.$q, this.$websocket, remoteConfig);
   }
 
   /**
@@ -59,7 +62,7 @@ export class CheRemote {
    * @param token
    * @returns {*}
    */
-  newProject(remoteConfig) {
+  newProject(remoteConfig: any) {
     return new CheRemoteProject(this.$resource, remoteConfig);
   }
 
@@ -69,7 +72,7 @@ export class CheRemote {
    * @param token
    * @returns {*}
    */
-  newRecipe(remoteConfig) {
-    return new CheRemoteRecipe(this.$resource, remoteConfig)
+  newRecipe(remoteConfig): any {
+    return new CheRemoteRecipe(this.$resource, remoteConfig);
   }
 }

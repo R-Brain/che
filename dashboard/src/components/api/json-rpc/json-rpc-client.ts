@@ -67,6 +67,7 @@ export class JsonRpcClient {
   }
 
   request(method: string, params?: any): ng.IPromise<any> {
+    //TODO
     let deferred = this.client.getDeferred();
     let id = this.counter++;
     this.pendingRequests.set(id, deferred);
@@ -111,6 +112,20 @@ export class JsonRpcClient {
   }
 
   private processResponse(message: any): void {
-    alert(message);
+    if (message.id) {
+      // request
+    } else {
+      this.processNotification(message);
+    }
+  }
+
+  private processNotification(message: any): void {
+    let method = message.method;
+    let handlers = this.notificationHandlers.get(method);
+    if (handlers && handlers.length > 0) {
+      handlers.forEach((handler: Function) => {
+        handler(message.params);
+      });
+    }
   }
 }

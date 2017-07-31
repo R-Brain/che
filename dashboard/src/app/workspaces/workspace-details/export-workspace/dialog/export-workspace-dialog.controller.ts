@@ -9,6 +9,8 @@
  *   Codenvy, S.A. - initial API and implementation
  */
 'use strict';
+import {CheNotification} from '../../../../../components/notification/che-notification.factory';
+import {CheRemote} from '../../../../../components/api/remote/che-remote.factory';
 
 /**
  * @ngdoc controller
@@ -17,22 +19,45 @@
  * @author Florent Benoit
  */
 export class ExportWorkspaceDialogController {
+  private $q: ng.IQService;
+  private $filter: ng.IFilterService;
+  private cheNotification: CheNotification;
+  private $log: ng.ILogService;
+  private $mdDialog: ng.material.IDialogService;
+  private cheRemote: CheRemote;
+  private $scope: ng.IScope;
+  private $window: ng.IWindowService;
+  private lodash: _.LoDashStatic;
+
+  private editorOptions: any;
+  private destination: string;
+  private privateCloudUrl: string;
+  private privateCloudLogin: string;
+  private privateCloudPassword: string;
+  private importInProgress: boolean;
+
+  private copyOfConfig: any;
+  private exportConfigContent: any;
+  private workspaceDetails: any;
+  private exportInCloudSteps: string;
+
 
   /**
    * Default constructor that is using resource
    * @ngInject for Dependency injection
    */
-  constructor($q, $filter, lodash, cheRemote, cheNotification, $http, cheRecipeTemplate, $mdDialog, $log, $window, $scope) {
+  constructor($q: ng.IQService, $filter: ng.IFilterService, lodash: _.LoDashStatic, cheRemote: CheRemote,
+              cheNotification: CheNotification, $mdDialog: ng.material.IDialogService, $log: ng.ILogService,
+              $window: ng.IWindowService, $scope: ng.IScope) {
     this.$q = $q;
     this.$filter = $filter;
-    this.$http = $http;
     this.lodash = lodash;
     this.cheRemote = cheRemote;
     this.cheNotification = cheNotification;
-    this.cheRecipeTemplate = cheRecipeTemplate;
     this.$mdDialog = $mdDialog;
     this.$log = $log;
     this.$window = $window;
+
     this.editorOptions = {
       lineWrapping : true,
       lineNumbers: false,
@@ -74,7 +99,7 @@ export class ExportWorkspaceDialogController {
    * @param object {Object} object to iterate
    * @returns {*}
    */
-  removeLinks(object) {
+  removeLinks(object: any) {
     delete object.links;
 
     return this.lodash.forEach(object, (value) => {
@@ -83,7 +108,7 @@ export class ExportWorkspaceDialogController {
       } else {
         return value;
       }
-    })
+    });
   }
 
   /**
@@ -101,34 +126,12 @@ export class ExportWorkspaceDialogController {
     this.importInProgress = true;
     let login = this.cheRemote.newAuth(this.privateCloudUrl, this.privateCloudLogin, this.privateCloudPassword);
 
-    login.then((authData) => {
+    login.then((authData: any) => {
       let copyOfConfig = angular.copy(this.copyOfConfig);
       copyOfConfig.name = 'import-' + copyOfConfig.name;
-
+      this.exportToPrivateCloudWorkspace(copyOfConfig, authData);
       // get content of the recipe
-      let environments = copyOfConfig.environments;
-      let defaultEnvName = copyOfConfig.defaultEnv;
-      let defaultEnvironment = environments[defaultEnvName];
-
-      let machineSource = defaultEnvironment.machines[0].source;
-      let recipeLocation = machineSource.location;
-      if (recipeLocation) {
-
-        // get content of recipe
-        this.$http.get(recipeLocation).then((response) => {
-
-          let recipeScriptContent = response.data;
-          this.exportToPrivateCloudRecipeContent(recipeScriptContent, copyOfConfig, authData);
-
-        }, (error) => {
-          this.handleError(error);
-        });
-
-      } else {
-        // use content from machine source
-        this.exportToPrivateCloudRecipeContent(machineSource.content, copyOfConfig, authData);
-      }
-    }, (error) => {
+    }, (error: any) => {
       this.handleError(error);
     });
   }
@@ -139,16 +142,11 @@ export class ExportWorkspaceDialogController {
    * @param workspaceConfig the workspace configuration to use
    * @param authData the data including token to deal with remote server
    */
-  exportToPrivateCloudRecipeContent(recipeScriptContent, workspaceConfig, authData) {
-    let environments = workspaceConfig.environments;
-    let defaultEnvName = workspaceConfig.defaultEnv;
-    let defaultEnvironment = environments[defaultEnvName];
-
-    defaultEnvironment.machines[0].source.content = recipeScriptContent;
+  exportToPrivateCloudWorkspace(workspaceConfig: any, authData: any) {
     let remoteWorkspaceAPI = this.cheRemote.newWorkspace(authData);
     this.exportInCloudSteps += 'Creating remote workspace...';
-    let createWorkspacePromise = remoteWorkspaceAPI.createWorkspaceFromConfig(null, workspaceConfig);
-    createWorkspacePromise.then((remoteWorkspace) => {
+    let createWorkspacePromise = remoteWorkspaceAPI.createWorkspaceFromConfig(workspaceConfig);
+    createWorkspacePromise.then((remoteWorkspace : any) => {
       this.exportInCloudSteps += 'ok !<br>';
 
       if (remoteWorkspace.config.projects && remoteWorkspace.config.projects.length > 0) {
@@ -156,7 +154,7 @@ export class ExportWorkspaceDialogController {
       } else {
         this.finishWorkspaceExporting(remoteWorkspace);
       }
-    }, (error) => {
+    }, (error: any) => {
       this.handleError(error);
     });
   }
@@ -168,24 +166,23 @@ export class ExportWorkspaceDialogController {
    * @param remoteWorkspace workspace to start
    * @param authData remote url and token data
    */
-  startRemoteWorkspace(remoteWorkspaceAPI, remoteWorkspace, authData) {
+  startRemoteWorkspace(remoteWorkspaceAPI: any, remoteWorkspace: any, authData: any) {
     this.exportInCloudSteps += 'Starting remote workspace...';
 
     // compute WS url
     let remoteURL = authData.url;
-    let remoteWsURL = remoteURL.replace('http', 'ws') + '/api/ws';
+    let remoteWsURL = remoteURL.replace('http', 'ws');
 
     let startWorkspacePromise = remoteWorkspaceAPI.startWorkspace(remoteWsURL, remoteWorkspace.id, remoteWorkspace.config.defaultEnv);
-
-    startWorkspacePromise.then((workspace) => {
-      let wsAgentLink = this.lodash.find(workspace.runtime.links, (link) => {
+    startWorkspacePromise.then((workspace: any) => {
+      let wsAgentLink = this.lodash.find(workspace.runtime.links, (link: any) => {
         return link.rel === 'wsagent';
       });
 
 
       // grab token for machine
       let tokenPromise = remoteWorkspaceAPI.getMachineToken(remoteWorkspace.id);
-      tokenPromise.then((machineTokenResult) => {
+      tokenPromise.then((machineTokenResult: any) => {
         // ask with machine token
         let agentAuthData = {url: wsAgentLink.href, token: machineTokenResult.machineToken};
         let remoteProjectAPI = this.cheRemote.newProject(agentAuthData);
@@ -195,16 +192,16 @@ export class ExportWorkspaceDialogController {
         let importProjectsPromise = this.importProjectsIntoWorkspace(remoteProjectAPI, remoteWorkspace);
         importProjectsPromise.then(() => {
           this.finishWorkspaceExporting(remoteWorkspace);
-        }, (error) => {
+        }, (error: any) => {
           this.handleError(error);
-        })
-      }, (error) => {
+        });
+      }, (error: any) => {
         this.handleError(error);
       });
 
 
 
-    }, (error) => {
+    }, (error: any) => {
       this.handleError(error);
     });
   }
@@ -215,10 +212,10 @@ export class ExportWorkspaceDialogController {
    * @param remoteProjectAPI the remote project API
    * @param workspace the remote workspace
    */
-  importProjectsIntoWorkspace(remoteProjectAPI, workspace) {
+  importProjectsIntoWorkspace(remoteProjectAPI: any, workspace: any) {
     var projectPromises = [];
 
-    workspace.config.projects.forEach((project) => {
+    workspace.config.projects.forEach((project: any) => {
       if (project.source && project.source.location && project.source.location.length > 0) {
         let deferred = this.$q.defer();
         let deferredPromise = deferred.promise;
@@ -230,10 +227,10 @@ export class ExportWorkspaceDialogController {
           let updateProjectPromise = remoteProjectAPI.updateProject(project.name, project);
           updateProjectPromise.then(() => {
             deferred.resolve(workspace);
-          }, (error) => {
+          }, (error: any) => {
             deferred.reject(error);
           });
-        }, (error) => {
+        }, (error: any) => {
           deferred.reject(error);
         });
       }
@@ -246,7 +243,7 @@ export class ExportWorkspaceDialogController {
    *
    * @param remoteWorkspace the remote exported workspace
    */
-  finishWorkspaceExporting(remoteWorkspace) {
+  finishWorkspaceExporting(remoteWorkspace: any) {
     this.exportInCloudSteps += 'Export of workspace ' + remoteWorkspace.config.name + 'finished <br>';
     this.cheNotification.showInfo('Successfully exported the workspace to ' + remoteWorkspace.config.name + ' on ' + this.privateCloudUrl);
     this.hide();
@@ -256,21 +253,19 @@ export class ExportWorkspaceDialogController {
    * Notify user about the error.
    * @param error the error message to display
    */
-  handleError(error) {
+  handleError(error: any) {
     this.importInProgress = false;
     var message;
-    if (error.data) {
+    if (error && error.data) {
       if (error.data.message) {
         message = error.data.message;
       } else {
         message = error.data;
       }
-    } else if(error.config && error.config.url) {
+    } else if (error && error.config && error.config.url) {
       message = 'unable to connect to ' + error.config.url;
     }
     this.cheNotification.showError('Exporting workspace failed: ' + message);
     this.$log.error('error', message, error);
   }
-
-
 }

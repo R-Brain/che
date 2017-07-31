@@ -11,7 +11,6 @@
 'use strict';
 
 import {CheWorkspace} from '../../../components/api/che-workspace.factory';
-import IdeSvc from '../../ide/ide.service';
 import {NamespaceSelectorSvc} from './namespace-selector/namespace-selector.service';
 import {StackSelectorSvc} from './stack-selector/stack-selector.service';
 import {ProjectSourceSelectorService} from './project-source-selector/project-source-selector.service';
@@ -40,10 +39,6 @@ export class CreateWorkspaceSvc {
    * Workspace API interaction.
    */
   private cheWorkspace: CheWorkspace;
-  /**
-   * IDE service.
-   */
-  private ideSvc: IdeSvc;
   /**
    * Namespace selector service.
    */
@@ -75,12 +70,11 @@ export class CreateWorkspaceSvc {
    * Default constructor that is using resource injection
    * @ngInject for Dependency injection
    */
-  constructor($location: ng.ILocationService, $log: ng.ILogService, $q: ng.IQService, cheWorkspace: CheWorkspace, ideSvc: IdeSvc, namespaceSelectorSvc: NamespaceSelectorSvc, stackSelectorSvc: StackSelectorSvc, projectSourceSelectorService: ProjectSourceSelectorService, cheNotification: CheNotification, confirmDialogService: ConfirmDialogService) {
+  constructor($location: ng.ILocationService, $log: ng.ILogService, $q: ng.IQService, cheWorkspace: CheWorkspace, namespaceSelectorSvc: NamespaceSelectorSvc, stackSelectorSvc: StackSelectorSvc, projectSourceSelectorService: ProjectSourceSelectorService, cheNotification: CheNotification, confirmDialogService: ConfirmDialogService) {
     this.$location = $location;
     this.$log = $log;
     this.$q = $q;
     this.cheWorkspace = cheWorkspace;
-    this.ideSvc = ideSvc;
     this.namespaceSelectorSvc = namespaceSelectorSvc;
     this.stackSelectorSvc = stackSelectorSvc;
     this.projectSourceSelectorService = projectSourceSelectorService;
