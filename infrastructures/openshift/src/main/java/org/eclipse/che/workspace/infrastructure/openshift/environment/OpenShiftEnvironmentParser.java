@@ -10,8 +10,10 @@
  *******************************************************************************/
 package org.eclipse.che.workspace.infrastructure.openshift.environment;
 
+import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.KubernetesList;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.openshift.api.model.DeploymentConfig;
@@ -21,17 +23,29 @@ import io.fabric8.openshift.client.OpenShiftClient;
 import org.eclipse.che.api.core.ServerException;
 import org.eclipse.che.api.core.ValidationException;
 import org.eclipse.che.api.core.model.workspace.config.Environment;
+import org.eclipse.che.api.core.model.workspace.config.MachineConfig;
 import org.eclipse.che.api.core.model.workspace.config.Recipe;
 import org.eclipse.che.api.workspace.server.RecipeDownloader;
 import org.eclipse.che.api.workspace.server.spi.InfrastructureException;
 import org.eclipse.che.workspace.infrastructure.openshift.OpenShiftClientFactory;
+import org.eclipse.che.workspace.infrastructure.openshift.ServerExposeUtils;
 
 import javax.inject.Inject;
 import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.eclipse.che.workspace.infrastructure.openshift.Constants.CHE_POD_NAME_LABEL;
+
 /**
+ * Parses {@link Environment} into {@link OpenShiftEnvironment}.
+ *
+ * <p>It is done in following way:
+ * <ul>
+ *   <li>parses OpenShift objects that are specified in recipe;</li>
+ *   <li>edits original recipe objects for exposing servers that are configured for machines.</li>
+ * </ul>
+ *
  * @author Sergii Leshchenko
  */
 public class OpenShiftEnvironmentParser {
@@ -47,7 +61,6 @@ public class OpenShiftEnvironmentParser {
 
     public OpenShiftEnvironment parse(Environment environment) throws ValidationException,
                                                                       InfrastructureException {
-
         checkNotNull(environment, "Environment should not be null");
         Recipe recipe = environment.getRecipe();
         checkNotNull(environment.getRecipe(), "Environment recipe should not be null");
@@ -95,9 +108,47 @@ public class OpenShiftEnvironmentParser {
             }
         }
 
-        return new OpenShiftEnvironment().withPods(pods)
-                                         .withServices(services)
-                                         .withRoutes(routes);
+        OpenShiftEnvironment openshiftEnvironment = new OpenShiftEnvironment().withPods(pods)
+                                                                              .withServices(services)
+                                                                              .withRoutes(routes);
+        normalizeEnvironment(openshiftEnvironment, environment);
+
+        return openshiftEnvironment;
+    }
+
+    private void normalizeEnvironment(OpenShiftEnvironment openshiftEnvironment,
+                                      Environment environment) throws ValidationException {
+        for (Pod podConfig : openshiftEnvironment.getPods().values()) {
+            String podName = podConfig.getMetadata().getName();
+            getLabels(podConfig).put(CHE_POD_NAME_LABEL, podName);
+
+            for (Container containerConfig : podConfig.getSpec().getContainers()) {
+                String machineName = podName + "/" + containerConfig.getName();
+                MachineConfig machineConfig = environment.getMachines().get(machineName);
+                if (machineConfig != null && !machineConfig.getServers().isEmpty()) {
+                    ServerExposeUtils.expose(machineName,
+                                             containerConfig,
+                                             machineConfig.getServers(),
+                                             openshiftEnvironment,
+                                             "servers");
+                }
+            }
+        }
+    }
+
+    private Map<String, String> getLabels(Pod pod) {
+        ObjectMeta metadata = pod.getMetadata();
+        if (metadata == null) {
+            metadata = new ObjectMeta();
+            pod.setMetadata(metadata);
+        }
+
+        Map<String, String> labels = metadata.getLabels();
+        if (labels == null) {
+            labels = new HashMap<>();
+            metadata.setLabels(labels);
+        }
+        return labels;
     }
 
     private String getContentOfRecipe(Recipe environmentRecipe) throws InfrastructureException {

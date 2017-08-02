@@ -53,7 +53,7 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
 
     private final OpenShiftClientFactory        clientFactory;
     private final EventService                  eventService;
-    private final OpenShiftBootstrapperFactory  openShiftBootstrapperFactory;
+    private final OpenShiftBootstrapperFactory  bootstrapperFactory;
     private final Map<String, OpenShiftMachine> machines;
     private final int                           machineStartTimeoutMin;
 
@@ -62,12 +62,12 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
                                     URLRewriter.NoOpURLRewriter urlRewriter,
                                     OpenShiftClientFactory clientFactory,
                                     EventService eventService,
-                                    OpenShiftBootstrapperFactory openShiftBootstrapperFactory,
+                                    OpenShiftBootstrapperFactory bootstrapperFactory,
                                     @Named("che.infra.openshift.machine_start_timeout_min") int machineStartTimeoutMin) {
         super(context, urlRewriter, false);
         this.clientFactory = clientFactory;
         this.eventService = eventService;
-        this.openShiftBootstrapperFactory = openShiftBootstrapperFactory;
+        this.bootstrapperFactory = bootstrapperFactory;
         this.machineStartTimeoutMin = machineStartTimeoutMin;
         this.machines = new ConcurrentHashMap<>();
     }
@@ -76,10 +76,10 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
     protected void internalStart(Map<String, String> startOptions) throws InfrastructureException {
         String projectName = getContext().getIdentity().getWorkspaceId();
 
-        prepareOpenshiftProject(projectName);
-
         // TODO Add Persistent Volumes claims for projects
         try (OpenShiftClient client = clientFactory.create()) {
+            prepareOpenshiftProject(projectName);
+
             LOG.info("Creating pods from environment");
             for (Pod toCreate : getContext().getOpenShiftEnvironment().getPods().values()) {
                 Pod createdPod = client.pods()
@@ -115,16 +115,17 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
             for (OpenShiftMachine machine : machines.values()) {
                 machine.waitRunning(machineStartTimeoutMin);
 
-                openShiftBootstrapperFactory.create(machine.getName(),
-                                                    getContext().getIdentity(),
-                                                    getContext().getMachineConfigs().get(machine.getName())
+                bootstrapperFactory.create(machine.getName(),
+                                           getContext().getIdentity(),
+                                           getContext().getMachineConfigs().get(machine.getName())
                                                                 .getInstallers(),
-                                                    machine)
-                                            .bootstrap();
+                                           machine)
+                                   .bootstrap();
 
                 sendRunningEvent(machine.getName());
             }
         } catch (RuntimeException | InterruptedException e) {
+            //TODO Openshift client throws runtime exception investigate what should be mapped to InternalInfrastructureException
             LOG.error("Failed to start of openshift runtime. " + e.getMessage(), e);
             throw new InfrastructureException(e.getMessage(), e);
         }
@@ -152,10 +153,9 @@ public class OpenShiftInternalRuntime extends InternalRuntime<OpenShiftRuntimeCo
         try (OpenShiftClient client = clientFactory.create()) {
             LOG.info("Trying to resolve project for workspace {}", getContext().getIdentity().getWorkspaceId());
             try {
-                Project project = client.projects().withName(projectName).get();
-
-                //TODO clean up project instead it recreation
+                client.projects().withName(projectName).get();
                 cleanUpOpenshiftProject(projectName);
+                //TODO Wait until object will be removed
             } catch (KubernetesClientException e) {
                 if (e.getCode() == 403) {
                     // project is foreign or doesn't exist
