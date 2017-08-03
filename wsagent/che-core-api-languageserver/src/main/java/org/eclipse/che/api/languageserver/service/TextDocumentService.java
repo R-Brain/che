@@ -25,6 +25,7 @@ import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.ExtendedComp
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.ExtendedCompletionListDto;
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.HoverDto;
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.LocationDto;
+import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.MarkedStringDto;
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.SignatureHelpDto;
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.SymbolInformationDto;
 import org.eclipse.che.api.languageserver.server.dto.DtoServerImpls.TextEditDto;
@@ -46,6 +47,7 @@ import org.eclipse.lsp4j.DocumentRangeFormattingParams;
 import org.eclipse.lsp4j.DocumentSymbolParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.Location;
+import org.eclipse.lsp4j.MarkedString;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.SignatureHelp;
 import org.eclipse.lsp4j.SymbolInformation;
@@ -67,8 +69,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static org.eclipse.che.api.languageserver.service.LanguageServiceUtils.prefixURI;
 import static org.eclipse.che.api.languageserver.service.LanguageServiceUtils.removePrefixUri;
 
@@ -119,7 +121,7 @@ public class TextDocumentService {
         List<CommandDto> result = new ArrayList<>();
         try {
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             LSOperation<InitializedLanguageServer, List<? extends Command>> op = new LSOperation<InitializedLanguageServer, List<? extends Command>>() {
 
                 @Override
@@ -224,7 +226,7 @@ public class TextDocumentService {
         List<SymbolInformationDto> result = new ArrayList<>();
         try {
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             OperationUtil.doInParallel(servers, new LSOperation<InitializedLanguageServer, List<? extends SymbolInformation>>() {
 
                 @Override
@@ -260,7 +262,7 @@ public class TextDocumentService {
         List<LocationDto> result = new ArrayList<>();
         try {
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             OperationUtil.doInParallel(servers, new LSOperation<InitializedLanguageServer, List<? extends Location>>() {
 
                 @Override
@@ -293,7 +295,7 @@ public class TextDocumentService {
         textDocumentPositionParams.getTextDocument().setUri(uri);
         try {
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             List<LocationDto> result = new ArrayList<>();
             OperationUtil.doInParallel(servers, new LSOperation<InitializedLanguageServer, List<? extends Location>>() {
 
@@ -347,7 +349,7 @@ public class TextDocumentService {
         try {
 
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             OperationUtil.doInParallel(servers, new LSOperation<InitializedLanguageServer, Hover>() {
 
                 @Override
@@ -363,7 +365,18 @@ public class TextDocumentService {
                 @Override
                 public boolean handleResult(InitializedLanguageServer element, Hover hover) {
                     if (hover != null) {
-                        result.getContents().addAll(hover.getContents());
+                        List<Either<String, MarkedString>> contents =
+                                hover.getContents().stream()
+                                     .map((Function<Either<String, MarkedString>, Either<String, MarkedString>>)either -> {
+                                         String left = either.getLeft();
+                                         if (left != null) {
+                                             return Either.forLeft(left);
+                                         }
+
+                                         MarkedString right = new MarkedStringDto(either.getRight());
+                                         return Either.forRight(right);
+                                     }).collect(toList());
+                        result.getContents().addAll(contents);
                     }
                     return true;
                 }
@@ -381,7 +394,7 @@ public class TextDocumentService {
         SignatureHelpDto[] result = new SignatureHelpDto[1];
         try {
             List<InitializedLanguageServer> servers = languageServerRegistry.getApplicableLanguageServers(uri).stream()
-                            .flatMap(Collection::stream).collect(Collectors.toList());
+                            .flatMap(Collection::stream).collect(toList());
             LSOperation<InitializedLanguageServer, SignatureHelp> op = new LSOperation<InitializedLanguageServer, SignatureHelp>() {
 
                 @Override
@@ -419,7 +432,7 @@ public class TextDocumentService {
                             .get();
             return server == null ? Collections.emptyList()
                             : server.getServer().getTextDocumentService().formatting(documentFormattingParams)
-                                            .get(5000, TimeUnit.MILLISECONDS).stream().map(TextEditDto::new).collect(Collectors.toList());
+                                            .get(5000, TimeUnit.MILLISECONDS).stream().map(TextEditDto::new).collect(toList());
 
         } catch (InterruptedException | ExecutionException | LanguageServerException | TimeoutException e) {
             throw new JsonRpcException(-27000, e.getMessage());
@@ -435,7 +448,7 @@ public class TextDocumentService {
                             .get();
             return server == null ? Collections.emptyList()
                             : server.getServer().getTextDocumentService().rangeFormatting(documentRangeFormattingParams).get().stream()
-                                            .map(TextEditDto::new).collect(Collectors.toList());
+                                            .map(TextEditDto::new).collect(toList());
         } catch (InterruptedException | ExecutionException | LanguageServerException e) {
             throw new JsonRpcException(-27000, e.getMessage());
         }
@@ -450,7 +463,7 @@ public class TextDocumentService {
                             .findFirst().get();
             return server == null ? Collections.emptyList()
                             : server.getServer().getTextDocumentService().onTypeFormatting(documentOnTypeFormattingParams).get().stream()
-                                            .map(TextEditDto::new).collect(Collectors.toList());
+                                            .map(TextEditDto::new).collect(toList());
         } catch (InterruptedException | ExecutionException | LanguageServerException e) {
             throw new JsonRpcException(-27000, e.getMessage());
         }
