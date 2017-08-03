@@ -159,6 +159,7 @@ export class CreateWorkspaceSvc {
           projectTemplates = this.projectSourceSelectorService.getProjectTemplates();
 
     return this.checkEditingProgress().then(() => {
+      workspaceConfig.projects = projectTemplates;
       return this.cheWorkspace.createWorkspaceFromConfig(namespaceId, workspaceConfig, attributes).then((workspace: che.IWorkspace) => {
 
         return this.cheWorkspace.startWorkspace(workspace.id, workspace.config.defaultEnv).then(() => {
@@ -170,14 +171,14 @@ export class CreateWorkspaceSvc {
           return this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING');
         }).then(() => {
           return this.cheWorkspace.fetchWorkspaceDetails(workspace.id);
-        }).then(() => {
+        })/*.then(() => {
           return this.createProjects(workspace.id, projectTemplates);
         }).then(() => {
           this.getIDE().ProjectExplorer.refresh();
           return this.importProjects(workspace.id, projectTemplates);
-        }).then(() => {
+        })*/.then(() => {
           let IDE = this.getIDE();
-          IDE.ProjectExplorer.refresh();
+          //IDE.ProjectExplorer.refresh();
           IDE.CommandManager.refresh();
         });
       }, (error: any) => {
@@ -217,6 +218,7 @@ export class CreateWorkspaceSvc {
   redirectToIde(namespaceId: string, workspace: che.IWorkspace): void {
     const path = `/ide/${namespaceId}/${workspace.config.name}`;
     this.$location.path(path);
+    this.$location.search({'init': 'true'});
   }
 
   /**

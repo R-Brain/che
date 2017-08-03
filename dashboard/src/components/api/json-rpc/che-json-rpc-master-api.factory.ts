@@ -16,7 +16,7 @@ enum MasterChannels {
   ENVIRONMENT_OUTPUT, ENVIRONMENT_STATUS, WS_AGENT_OUTPUT, WORKSPACE_STATUS
 }
 
-const websocketMasterApi: string = '/wsmaster/websocket/';
+const websocketMasterApi: string = '/wsmaster/websocket';
 
 /**
  *
@@ -57,7 +57,8 @@ export class CheJsonRpcMasterApi {
   }
 
   connect(entrypoint: string): ng.IPromise<any> {
-    let applicationID: number = new Date().getTime();
+    // let applicationID: number = new Date().getTime();
+    let applicationID = '';
     return this.cheJsonRpcApi.connect(entrypoint + websocketMasterApi + applicationID);
   }
 
@@ -100,7 +101,7 @@ export class CheJsonRpcMasterApi {
   subscribeWorkspaceStatus(workspaceId: string, callback: Function): void {
     let channel = this.channels.get(MasterChannels.WORKSPACE_STATUS);
     let params = [workspaceId];
-    let statusHandler = (message) => {
+    let statusHandler = (message: any) => {
       if (workspaceId === message.workspaceId) {
         callback(message);
       }

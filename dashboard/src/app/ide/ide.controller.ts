@@ -59,9 +59,15 @@ class IdeCtrl {
       this.selectedWorkspaceName = workspace;
     }
 
+    let initProjects = this.$routeParams.init;
     let ideAction = this.$routeParams.action;
     let ideParams: any = this.$routeParams.ideParams;
     let selectedWorkspaceIdeUrl = this.cheWorkspace.getIdeUrl(namespace, this.selectedWorkspaceName);
+
+    if (initProjects) {
+      this.ideSvc.setInitProjects(true);
+    }
+
     if (ideAction) {
       // send action
       this.ideSvc.setIDEAction(ideAction);

@@ -43,6 +43,7 @@ export class CheWorkspace {
   private $http: ng.IHttpService;
   private $q: ng.IQService;
   private $log: ng.ILogService;
+  private $websocket: ng.websocket.IWebSocketProvider;
   private cheJsonRpcMasterApi: CheJsonRpcMasterApi;
   private listeners: Array<any>;
   private workspaceStatuses: Array<string>;
@@ -71,6 +72,7 @@ export class CheWorkspace {
     this.$resource = $resource;
     this.$http = $http;
     this.$log = $log;
+    this.$websocket = $websocket;
     this.lodash = lodash;
     this.cheWebsocket = cheWebsocket;
 
@@ -140,8 +142,17 @@ export class CheWorkspace {
         return null;
       }
 
-      let workspaceAgentData = {path: wsAgentLink.href};
-      let wsagent: CheWorkspaceAgent = new CheWorkspaceAgent(this.$resource, this.$q, this.cheWebsocket, workspaceAgentData);
+      let wsAgentWebocketLink;
+      if (runtimeConfig.devMachine) {
+        let websocketLink = this.lodash.find(runtimeConfig.devMachine.links, (link: any) => {
+          return link.rel === 'wsagent.websocket';
+        });
+        wsAgentWebocketLink = websocketLink ? websocketLink.href : '';
+        wsAgentWebocketLink = wsAgentWebocketLink.replace('/api/ws', '');
+      }
+
+      let workspaceAgentData = {path: wsAgentLink.href, websocket: wsAgentWebocketLink};
+      let wsagent: CheWorkspaceAgent = new CheWorkspaceAgent(this.$resource, this.$q, this.$websocket, workspaceAgentData);
       this.workspaceAgents.set(workspaceId, wsagent);
       return wsagent;
     }
@@ -522,22 +533,6 @@ export class CheWorkspace {
   getAllProjects(): Array<che.IProject> {
     let projects = this.lodash.pluck(this.workspaces, 'config.projects');
     return [].concat.apply([], projects);
-  }
-
-  /**
-   * Gets websocket for a given workspace. It needs to have fetched first the runtime configuration of the workspace
-   * @param workspaceId {string} the id of the workspace
-   * @returns {string}
-   */
-  getWebsocketUrl(workspaceId: string): string {
-    let workspace = this.workspacesById.get(workspaceId);
-    if (!workspace || !workspace.runtime || !workspace.runtime.devMachine) {
-      return '';
-    }
-    let websocketLink = this.lodash.find(workspace.runtime.devMachine.links, (link: any) => {
-      return link.rel === 'wsagent.websocket';
-    });
-    return websocketLink ? websocketLink.href : '';
   }
 
   /**
