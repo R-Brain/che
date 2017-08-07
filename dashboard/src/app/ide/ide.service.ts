@@ -279,10 +279,6 @@ class IdeSvc {
       (this.$rootScope as any).ideIframeLink = ideUrlLink + appendUrl;
     }
 
-    // iframe element for IDE application:
-    let iframeElement = '<iframe class=\"ide-page-frame\" id=\"ide-application-iframe\" ng-src=\"{{ideIframeLink}}\" ></iframe>';
-    this.cheUIElementsInjectorService.injectAdditionalElement(iframeParent, iframeElement);
-
     let defer = this.$q.defer();
     if (workspace.status === 'RUNNING') {
       defer.resolve();
@@ -295,8 +291,40 @@ class IdeSvc {
       });
     }
     defer.promise.then(() => {
-      // update list of recent workspaces
-      this.cheWorkspace.fetchWorkspaces();
+      this.cheWorkspace.fetchWorkspaces().then(() => {
+        let another_defer = this.$q.defer();
+        if (workspace.status === 'RUNNING') {
+          let cur_workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
+          if (cur_workspace.runtime) {
+            another_defer.resolve();
+          } else {
+            this.cheWorkspace.fetchWorkspaceDetails(workspaceId).then(() => {
+              another_defer.resolve();
+            });
+          }
+        } else {
+          this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
+            return this.cheWorkspace.fetchWorkspaceDetails(workspaceId);
+          }).then(() => {
+            another_defer.resolve();
+          });
+        }
+        another_defer.promise.then(() => {
+          let cur_workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
+          if (this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.envVariables.RIDE')) {
+            const idePort = this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8888/tcp.address').split(':')[1];
+            const proxyPort = this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8080/tcp.address').split(':')[1];
+            const wsPort =  this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8081/tcp.address').split(':')[1];
+            let ideUrl = `${location.origin}:${idePort}/ride?websocket=${wsPort}&proxy=${proxyPort}`;
+            (this.$rootScope as any).ideIframeLink = (this.$sce as any).trustAsResourceUrl(ideUrl);
+          }
+          // iframe element for IDE application:
+          let iframeElement = '<iframe class=\"ide-page-frame\" id=\"ide-application-iframe\" ng-src=\"{{ideIframeLink}}\" ></iframe>';
+          this.cheUIElementsInjectorService.injectAdditionalElement(iframeParent, iframeElement);
+          (this.$rootScope as any).showIDE = true;
+          (this.$rootScope as any).hideLoader = true;
+        });
+      });
     });
   }
 
