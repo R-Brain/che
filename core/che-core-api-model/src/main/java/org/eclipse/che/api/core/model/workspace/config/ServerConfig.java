@@ -19,12 +19,12 @@ public interface ServerConfig {
     /**
      * Port used by server.
      *
-     * <p>It may contain protocol(TCP or UDP) after '/' symbol.
-     * If protocol is missed TCP will be used by default.
+     * <p>It may contain protocol(tcp or udp) after '/' symbol.
+     * If protocol is missed tcp will be used by default.
      * Example:
      * <ul>
-     *     <li>8080/TCP</li>
-     *     <li>8080/UDP</li>
+     *     <li>8080/tcp</li>
+     *     <li>8080/udp</li>
      *     <li>8080</li>
      * </ul>
      */
