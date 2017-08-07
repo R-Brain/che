@@ -69,14 +69,14 @@ import static org.eclipse.che.workspace.infrastructure.openshift.Constants.CHE_P
  *       protocol: TCP                ---->> Pod.spec.ports[0].protocol
  * </pre>
  *
- * Then corresponding route expose one of the service' port:
+ * Then corresponding route expose one of the service's port:
  * <pre>
  * Route
  * ...
  * spec:
  *   to:
  *     name: dev-machine              ---->> Service.metadata.name
- *     targetPort: [web-app|8080]     ---->> Service.spec.ports[0].[name|port]
+ *     targetPort: [8080|web-app]     ---->> Service.spec.ports[0].[port|name]
  * </pre>
  *
  * @author Sergii Leshchenko
