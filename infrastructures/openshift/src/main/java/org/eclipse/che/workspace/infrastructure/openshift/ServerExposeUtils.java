@@ -38,21 +38,45 @@ import static org.eclipse.che.workspace.infrastructure.openshift.Constants.CHE_P
  * create {@link Service} and corresponding {@link Route} for exposing this port.
  *
  * <p>Container, service and route are linked in the following way:
+ *
  * <pre>
- *                                  Service                            Route
- *                                  metadata:                          ...
- * Pod                                name: service123   <----         spec:
- * metadata:                        spec:port:               |           to:
- *   labels:                          selector:              |-------      name: dev-machine
- *     type: web-app      <-----        type: web-app                    targetPort: [web-app|8080]
- * spec:                              ports:                               |
- *   containers:                        - name: web-app    <|---------------
- *   ...                                  port: 8080       <|
- *   - ports:                  |<-----    targetPort: [8080|web-app]
- *     - containerPort: 8080 <-|          protocol: TCP
- *       name: web-app       <-|          |
- *       protocol: TCP       <-------------
+ * Pod
+ * metadata:
+ *   labels:
+ *     type: web-app
+ * spec:
+ *   containers:
  *   ...
+ *   - ports:
+ *     - containerPort: 8080
+ *       name: web-app
+ *       protocol: TCP
+ *   ...
+ * </pre>
+ *
+ * Then services expose containers ports in the following way:
+ * <pre>
+ * Service
+ * metadata:
+ *   name: service123
+ * spec:
+ *   selector:                        ---->> Pod.metadata.labels
+ *     type: web-app
+ *   ports:
+ *     - name: web-app
+ *       port: 8080
+ *       targetPort: [8080|web-app]   ---->> Pod.spec.ports[0].[containerPort|name]
+ *       protocol: TCP                ---->> Pod.spec.ports[0].protocol
+ * </pre>
+ *
+ * Then corresponding route expose one of the service' port:
+ * <pre>
+ * Route
+ * ...
+ * spec:
+ *   to:
+ *     name: dev-machine              ---->> Service.metadata.name
+ *     targetPort: [web-app|8080]     ---->> Service.spec.ports[0].[name|port]
  * </pre>
  *
  * @author Sergii Leshchenko
