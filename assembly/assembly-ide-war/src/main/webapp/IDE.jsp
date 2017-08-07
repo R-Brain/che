@@ -48,9 +48,9 @@
         window.IDE.eventHandlers.initializationFailed = function (message) {
             if (message) {
                 var err = new Error(message);
-                window.alert(err.stack);
+                console.log(err.stack);
             } else {
-                window.alert("Unable to initialize IDE");
+                console.log("Unable to initialize IDE");
             }
         };
 
