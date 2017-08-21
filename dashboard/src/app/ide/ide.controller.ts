@@ -27,8 +27,8 @@ class IdeCtrl {
   cheWorkspace: CheWorkspace;
 
   hasData: boolean;
-  workspaces: any[];
-  selectedWorkspace: any = null;
+  workspaces: che.IWorkspace[];
+  selectedWorkspace: che.IWorkspace = null;
   selectedWorkspaceExists: boolean = true;
   selectedWorkspaceName: string = null;
 

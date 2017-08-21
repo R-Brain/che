@@ -273,59 +273,59 @@ class IdeSvc {
     let iframeParent = angular.element('#ide-application-frame');
     iframeParent.find('iframe').remove();
 
-    if (inDevMode) {
-      (this.$rootScope as any).ideIframeLink = this.$sce.trustAsResourceUrl(ideUrlLink + appendUrl);
-    } else {
-      (this.$rootScope as any).ideIframeLink = ideUrlLink + appendUrl;
-    }
-
     let defer = this.$q.defer();
-    if (workspace.status === 'RUNNING') {
-      defer.resolve();
-    } else {
-      this.cheWorkspace.fetchStatusChange(workspace.id, 'STARTING').then(() => {
-        defer.resolve();
-      }, (error: any) => {
-        defer.reject(error);
-        this.$log.error('Unable to start workspace: ', error);
-      });
-    }
     defer.promise.then(() => {
-      this.cheWorkspace.fetchWorkspaces().then(() => {
-        let another_defer = this.$q.defer();
-        if (workspace.status === 'RUNNING') {
-          let cur_workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
-          if (cur_workspace.runtime) {
-            another_defer.resolve();
-          } else {
-            this.cheWorkspace.fetchWorkspaceDetails(workspaceId).then(() => {
-              another_defer.resolve();
-            });
-          }
-        } else {
-          this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
-            return this.cheWorkspace.fetchWorkspaceDetails(workspaceId);
-          }).then(() => {
-            another_defer.resolve();
-          });
+      let workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
+      this.openedWorkspace = workspace;
+
+      const foo = workspace.config.environments['default'].machines['dev-machine'].attributes.foo;
+      this.$log.warn('foo: ', foo);
+
+      if (!workspace || !workspace.runtime || !workspace.runtime.devMachine) {
+
+        workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
+        this.openedWorkspace = workspace;
+
+        if (!workspace || !workspace.runtime || !workspace.runtime.devMachine) {
+          this.$log.error('workspace runtime could not be initialized');
+          return;
         }
-        another_defer.promise.then(() => {
-          let cur_workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
-          if (this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.envVariables.RIDE')) {
-            const idePort = this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8888/tcp.address').split(':')[1];
-            const proxyPort = this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8080/tcp.address').split(':')[1];
-            const wsPort =  this.lodash.get(cur_workspace, 'runtime.machines.0.runtime.servers.8081/tcp.address').split(':')[1];
-            let ideUrl = `${location.origin}:${idePort}/ride?websocket=${wsPort}&proxy=${proxyPort}`;
-            (this.$rootScope as any).ideIframeLink = (this.$sce as any).trustAsResourceUrl(ideUrl);
-          }
-          // iframe element for IDE application:
-          let iframeElement = '<iframe class=\"ide-page-frame\" id=\"ide-application-iframe\" ng-src=\"{{ideIframeLink}}\" ></iframe>';
-          this.cheUIElementsInjectorService.injectAdditionalElement(iframeParent, iframeElement);
-          (this.$rootScope as any).showIDE = true;
-          (this.$rootScope as any).hideLoader = true;
-        });
-      });
+      }
+
+      if (workspace.runtime.devMachine.runtime.envVariables.RIDE) {
+        const idePort = this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8888/tcp.address').split(':')[1];
+        const proxyPort = this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8080/tcp.address').split(':')[1];
+        const wsPort =  this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8081/tcp.address').split(':')[1];
+        let ideUrl = `${location.origin}:${idePort}/ride?websocket=${wsPort}&proxy=${proxyPort}`;
+        (this.$rootScope as any).ideIframeLink = (this.$sce as any).trustAsResourceUrl(ideUrl);
+      } else {
+        if (inDevMode) {
+          (this.$rootScope as any).ideIframeLink = this.$sce.trustAsResourceUrl(ideUrlLink + appendUrl);
+        } else {
+          (this.$rootScope as any).ideIframeLink = ideUrlLink + appendUrl;
+        }
+      }
+      // iframe element for IDE application:
+      let iframeElement = '<iframe class=\"ide-page-frame\" id=\"ide-application-iframe\" ng-src=\"{{ideIframeLink}}\" ></iframe>';
+      this.cheUIElementsInjectorService.injectAdditionalElement(iframeParent, iframeElement);
+      (this.$rootScope as any).showIDE = true;
+      (this.$rootScope as any).hideLoader = true;
     });
+
+    if (workspace.status === 'RUNNING') {
+      this.cheWorkspace.fetchWorkspaceDetails(workspace.id).then(() => {
+        defer.resolve();
+      });
+    } else {
+      (this.$rootScope as any).showIDE = false;
+      this.cheWorkspace.startUpdateWorkspaceStatus(workspace.id);
+      this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
+        return this.cheWorkspace.fetchWorkspaceDetails(workspace.id);
+      }).then(() => {
+        defer.resolve();
+      });
+      this.cheWorkspace.fetchWorkspaces();
+    }
   }
 
   /**

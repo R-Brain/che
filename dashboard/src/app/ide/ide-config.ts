@@ -21,7 +21,7 @@ import IdeIFrameSvc from './ide-iframe/ide-iframe.service';
 
 export class IdeConfig {
 
-  constructor(register) {
+  constructor(register: che.IRegisterService) {
     register.service('ideSvc', IdeSvc);
     register.controller('IdeCtrl', IdeCtrl);
 
