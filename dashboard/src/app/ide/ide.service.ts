@@ -277,10 +277,6 @@ class IdeSvc {
     defer.promise.then(() => {
       let workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
       this.openedWorkspace = workspace;
-
-      const foo = workspace.config.environments['default'].machines['dev-machine'].attributes.foo;
-      this.$log.warn('foo: ', foo);
-
       if (!workspace || !workspace.runtime || !workspace.runtime.devMachine) {
 
         workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
