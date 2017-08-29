@@ -112,10 +112,10 @@ class IdeSvc {
     this.startWorkspace(bus, workspace).then(() => {
       // update list of workspaces
       // for new workspace to show in recent workspaces
-      this.cheAPI.cheWorkspace.fetchWorkspaces();
+      this.cheWorkspace.fetchWorkspaces();
 
       this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
-        return this.cheWorkspace.fetchWorkspaceDetails(workspace.id);
+        return this.fetchWorkspaceDetails(workspace.id);
       }).then(() => {
         startWorkspaceDefer.resolve();
       }, (error: any) => {
@@ -331,7 +331,7 @@ class IdeSvc {
 
   fetchWorkspaceDetails(workspaceKey: string): ng.IPromise<che.IWorkspace> {
     const defer = this.$q.defer<che.IWorkspace>();
-    const promise: ng.IHttpPromise<any> = this.$http.get('/api/workspace/' + workspaceKey, { headers: { 'If-None-Match': 0 } });
+    const promise: ng.IHttpPromise<any> = this.$http.get('/api/workspace/' + workspaceKey, { headers: { 'If-None-Match': '"1234567890"' } });
     promise.then((response: ng.IHttpPromiseCallbackArg<che.IWorkspace>) => {
       const data = response.data;
       defer.resolve(data);

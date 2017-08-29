@@ -362,7 +362,7 @@ initModule.constant('userDashboardConfig', {
 
 initModule.config(['$routeProvider', '$locationProvider', '$httpProvider', ($routeProvider, $locationProvider, $httpProvider) => {
   // add the ETag interceptor for Che API
-  $httpProvider.interceptors.push('ETagInterceptor');
+  // $httpProvider.interceptors.push('ETagInterceptor');
 }]);
 
 

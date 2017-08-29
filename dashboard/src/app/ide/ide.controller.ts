@@ -147,7 +147,14 @@ class IdeCtrl {
     this.$rootScope.hideLoader = true;
 
     if (this.selectedWorkspace) {
-      this.ideSvc.openIde(this.selectedWorkspace.id);
+      const workspaceId = this.selectedWorkspace.id;
+      if (this.selectedWorkspace.status === 'STOPPED') {
+        this.ideSvc.startIde(this.selectedWorkspace).then(() => {
+          this.ideSvc.openIde(workspaceId);
+        });
+      } else {
+        this.ideSvc.openIde(workspaceId);
+      }
     }
   }
 }
