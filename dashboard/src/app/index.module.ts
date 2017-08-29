@@ -185,7 +185,7 @@ initModule.factory('ETagInterceptor', ($window, $cookies, $q) => {
           let eTagURI = etagMap[config.url];
           if (eTagURI) {
             config.headers = config.headers || {};
-            angular.extend(config.headers, {'If-None-Match': eTagURI});
+            // angular.extend(config.headers, {'If-None-Match': eTagURI});
           }
         }
       }
