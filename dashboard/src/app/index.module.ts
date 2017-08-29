@@ -185,7 +185,7 @@ initModule.factory('ETagInterceptor', ($window, $cookies, $q) => {
           let eTagURI = etagMap[config.url];
           if (eTagURI) {
             config.headers = config.headers || {};
-            angular.extend(config.headers, {'If-None-Match': eTagURI});
+            // angular.extend(config.headers, {'If-None-Match': eTagURI});
           }
         }
       }
@@ -362,7 +362,7 @@ initModule.constant('userDashboardConfig', {
 
 initModule.config(['$routeProvider', '$locationProvider', '$httpProvider', ($routeProvider, $locationProvider, $httpProvider) => {
   // add the ETag interceptor for Che API
-  $httpProvider.interceptors.push('ETagInterceptor');
+  // $httpProvider.interceptors.push('ETagInterceptor');
 }]);
 
 

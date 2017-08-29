@@ -22,6 +22,7 @@ class IdeSvc {
   $location: ng.ILocationService;
   $log: ng.ILogService;
   $mdDialog: ng.material.IDialogService;
+  $http: ng.IHttpService;
   $q: ng.IQService;
   $rootScope: ng.IRootScopeService;
   $sce: ng.ISCEService;
@@ -47,13 +48,14 @@ class IdeSvc {
    * Default constructor that is using resource
    * @ngInject for Dependency injection
    */
-  constructor($location: ng.ILocationService, $log: ng.ILogService, $mdDialog: ng.material.IDialogService,
+  constructor($location: ng.ILocationService, $log: ng.ILogService, $mdDialog: ng.material.IDialogService, $http: ng.IHttpService,
               $q: ng.IQService, $rootScope: ng.IRootScopeService, $sce: ng.ISCEService, $timeout: ng.ITimeoutService,
               $websocket: ng.websocket.IWebSocketProvider, cheAPI: CheAPI, cheWorkspace: CheWorkspace, lodash: any,
               proxySettings: any, routeHistory: RouteHistory, userDashboardConfig: any, cheUIElementsInjectorService: CheUIElementsInjectorService) {
     this.$location = $location;
     this.$log = $log;
     this.$mdDialog = $mdDialog;
+    this.$http = $http;
     this.$q = $q;
     this.$rootScope = $rootScope;
     this.$sce = $sce;
@@ -110,10 +112,10 @@ class IdeSvc {
     this.startWorkspace(bus, workspace).then(() => {
       // update list of workspaces
       // for new workspace to show in recent workspaces
-      this.cheAPI.cheWorkspace.fetchWorkspaces();
+      this.cheWorkspace.fetchWorkspaces();
 
       this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
-        return this.cheWorkspace.fetchWorkspaceDetails(workspace.id);
+        return this.fetchWorkspaceDetails(workspace.id);
       }).then(() => {
         startWorkspaceDefer.resolve();
       }, (error: any) => {
@@ -273,9 +275,8 @@ class IdeSvc {
     let iframeParent = angular.element('#ide-application-frame');
     iframeParent.find('iframe').remove();
 
-    let defer = this.$q.defer();
-    defer.promise.then(() => {
-      let workspace = this.cheWorkspace.getWorkspaceById(workspaceId);
+    let defer = this.$q.defer<che.IWorkspace>();
+    defer.promise.then((workspace: che.IWorkspace) => {
       this.openedWorkspace = workspace;
       if (!workspace || !workspace.runtime || !workspace.runtime.devMachine) {
 
@@ -309,19 +310,31 @@ class IdeSvc {
     });
 
     if (workspace.status === 'RUNNING') {
-      this.cheWorkspace.fetchWorkspaceDetails(workspace.id).then(() => {
-        defer.resolve();
+      this.fetchWorkspaceDetails(workspace.id).then((workspace: che.IWorkspace) => {
+        defer.resolve(workspace);
       });
     } else {
       (this.$rootScope as any).showIDE = false;
       this.cheWorkspace.startUpdateWorkspaceStatus(workspace.id);
       this.cheWorkspace.fetchStatusChange(workspace.id, 'RUNNING').then(() => {
-        return this.cheWorkspace.fetchWorkspaceDetails(workspace.id);
-      }).then(() => {
-        defer.resolve();
+        return this.fetchWorkspaceDetails(workspace.id);
+      }).then((workspace: che.IWorkspace) => {
+        defer.resolve(workspace);
       });
       this.cheWorkspace.fetchWorkspaces();
     }
+  }
+
+  fetchWorkspaceDetails(workspaceKey: string): ng.IPromise<che.IWorkspace> {
+    const defer = this.$q.defer<che.IWorkspace>();
+    const promise: ng.IHttpPromise<any> = this.$http.get('/api/workspace/' + workspaceKey, { headers: { 'If-None-Match': '"1234567890"' } });
+    promise.then((response: ng.IHttpPromiseCallbackArg<che.IWorkspace>) => {
+      const data = response.data;
+      defer.resolve(data);
+    }, (error: any) => {
+      defer.reject(error);
+    });
+    return defer.promise;
   }
 
   /**
