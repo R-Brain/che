@@ -49,6 +49,7 @@ class IdeSvc {
    * @ngInject for Dependency injection
    */
   constructor($location: ng.ILocationService, $log: ng.ILogService, $mdDialog: ng.material.IDialogService, $http: ng.IHttpService,
+              $window,
               $q: ng.IQService, $rootScope: ng.IRootScopeService, $sce: ng.ISCEService, $timeout: ng.ITimeoutService,
               $websocket: ng.websocket.IWebSocketProvider, cheAPI: CheAPI, cheWorkspace: CheWorkspace, lodash: any,
               proxySettings: any, routeHistory: RouteHistory, userDashboardConfig: any, cheUIElementsInjectorService: CheUIElementsInjectorService) {
@@ -75,6 +76,21 @@ class IdeSvc {
     this.openedWorkspace = null;
 
     this.listeningChannels = [];
+
+    $window.addEventListener('message', (event) => {
+      const workspaceId = (/workspace-activity:(.*)/.exec(event.data) || [])[1];
+      if (workspaceId) {
+        this.logWorkspaceActivity(workspaceId);
+      }
+    }, false);
+  }
+
+  logWorkspaceActivity(workspaceId: string): void {
+    this.$http.put('/api/activity/' + workspaceId, '').then(() => {
+      this.$log.info('Workspace activity for WORKSPACE_ID: ' + workspaceId);
+    }).catch((error) => {
+      this.$log.error('{' + workspaceId + ') ' + error);
+    });
   }
 
   displayIDE(): void {
