@@ -6,7 +6,7 @@
   left 0
   border none
 
-.open-ide-page
+.open-ide-container
   position relative
   color $white-color
 
@@ -25,6 +25,23 @@
   animation-duration 2s
   animation-iteration-count infinite
   animation-timing-function ease-in-out
+
+.open-ide-progress // projects-create-project
+  padding 0 14px
+
+.open-ide-progress-container // create-project-progress-panel
+  margin-left 24px
+  margin-top 32px
+  margin-bottom 10px
+  margin-right 24px
+  background-color #fff
+  box-shadow 0 2px 6px 0 rgba(0, 0, 0, 0.4)
+
+.open-ide-progress-container .che-loader-animation-panel
+  border none !important
+
+.open-ide-progress-working-log // create-project-working-log
+  margin-top 35px
 
 @keyframes opacity
   0%, 100%

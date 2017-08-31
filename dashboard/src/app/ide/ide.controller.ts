@@ -115,6 +115,26 @@ class IdeCtrl {
 
   }
 
+  getStartupSteps(): any[] {
+    return this.ideSvc.getStartupSteps();
+  }
+
+  getCurrentProgressStep(): number {
+    return this.ideSvc.getCurrentProgressStep();
+  }
+
+  isIdeStarting(): boolean {
+    return this.ideSvc.isIdeStarting();
+  }
+
+  setIdeStarting(): void {
+    this.ideSvc.setIdeStarting(true);
+  }
+
+  resetCreateProgress(): void {
+    this.ideSvc.resetCreateProgress();
+  }
+
   /**
    * Transform colon separator value into key/value
    * @param arg {string}
@@ -149,6 +169,9 @@ class IdeCtrl {
     if (this.selectedWorkspace) {
       const workspaceId = this.selectedWorkspace.id;
       if (this.selectedWorkspace.status === 'STOPPED') {
+        this.resetCreateProgress();
+        this.setIdeStarting();
+
         this.ideSvc.startIde(this.selectedWorkspace).then(() => {
           this.ideSvc.openIde(workspaceId);
         });

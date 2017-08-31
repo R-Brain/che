@@ -44,6 +44,10 @@ class IdeSvc {
   websocketReconnect: number;
   ideAction: string;
 
+  startupSteps: any[];
+  currentStartupStep: number;
+  isStarting: boolean;
+
   /**
    * Default constructor that is using resource
    * @ngInject for Dependency injection
@@ -77,6 +81,12 @@ class IdeSvc {
 
     this.listeningChannels = [];
 
+    this.startupSteps = [
+        {text: 'Starting workspace runtime', inProgressText: 'Retrieving the stack\'s image and launching it', logs: '', hasError: false},
+        {text: 'Starting workspace agent', inProgressText: 'Agents provide RESTful services like intellisense and SSH', logs: '', hasError: false},
+    ];
+    this.currentStartupStep = 0;
+
     $window.addEventListener('message', (event) => {
       const workspaceId = (/workspace-activity:(.*)/.exec(event.data) || [])[1];
       if (workspaceId) {
@@ -91,6 +101,44 @@ class IdeSvc {
     }).catch((error) => {
       this.$log.error('{' + workspaceId + ') ' + error);
     });
+  }
+
+  getStartupSteps(): any[] {
+    return this.startupSteps;
+  }
+
+  getCurrentProgressStep(): number {
+    return this.currentStartupStep;
+  }
+
+  setCurrentProgressStep(currentStartupStep: number): void {
+    this.currentStartupStep = currentStartupStep;
+  }
+
+  getStepText(stepNumber: number) {
+    let entry = this.startupSteps[stepNumber];
+    if (this.currentStartupStep >= stepNumber) {
+      return entry.inProgressText;
+    } else {
+      return entry.text;
+    }
+  }
+
+  isIdeStarting(): any {
+    return this.isStarting;
+  }
+
+  setIdeStarting(isStarting: boolean): any {
+    this.isStarting = isStarting;
+  }
+
+  resetCreateProgress() {
+    this.startupSteps.forEach((step) => {
+      step.logs = '';
+      step.hasError = false;
+    });
+    this.currentStartupStep = 0;
+    this.isStarting = false;
   }
 
   displayIDE(): void {
@@ -165,6 +213,8 @@ class IdeSvc {
   }
 
   startWorkspace(bus: any, data: any): ng.IPromise<any> {
+    this.setCurrentProgressStep(0);
+
     let startWorkspacePromise = this.cheAPI.getWorkspace().startWorkspace(data.id, data.config.defaultEnv);
 
     startWorkspacePromise.then((data: any) => {
@@ -172,14 +222,21 @@ class IdeSvc {
         return link.rel === 'environment.status_channel';
       });
 
+      let outputLink = this.lodash.find(data.links, (link: any) => {
+        return link.rel === 'environment.output_channel';
+      });
+
       let workspaceId = data.id;
 
       let agentChannel = 'workspace:' + data.id + ':ext-server:output';
       let statusChannel = statusLink ? statusLink.parameters[0].defaultValue : null;
+      let outputChannel = outputLink ? outputLink.parameters[0].defaultValue : null;
 
       this.listeningChannels.push(statusChannel);
       // for now, display log of status channel in case of errors
       bus.subscribe(statusChannel, (message: any) => {
+        this.getStartupSteps()[this.getCurrentProgressStep()].hasError = true;
+
         if (message.eventType === 'ERROR' && message.workspaceId === data.id) {
           let errorMessage = 'Error when trying to start the workspace';
           if (message.error) {
@@ -201,6 +258,18 @@ class IdeSvc {
 
       this.listeningChannels.push(agentChannel);
       bus.subscribe(agentChannel, (message: any) => {
+        if (this.getCurrentProgressStep() < 2) {
+          this.setCurrentProgressStep(2);
+        }
+
+        const agentStep = 1;
+        const step = this.getStartupSteps()[agentStep];
+        if (step.logs.length > 0) {
+          step.logs = step.logs + '\n' + message;
+        } else {
+          step.logs = message;
+        }
+
         if (message.eventType === 'ERROR' && message.workspaceId === data.id) {
           // need to show the error
           this.$mdDialog.show(
@@ -212,12 +281,39 @@ class IdeSvc {
           );
         }
       });
+
+      if (outputChannel) {
+        this.listeningChannels.push(outputChannel);
+        bus.subscribe(outputChannel, (message: any) => {
+          message = this.getDisplayMachineLog(message);
+          const step = this.getStartupSteps()[this.getCurrentProgressStep()];
+          if (step.logs.length > 0) {
+            step.logs = step.logs + '\n' + message;
+          } else {
+            step.logs = message;
+          }
+        });
+      }
+
     }, (error: any) => {
+      const errorMessage = 'Unable to start this workspace.';
+      this.getStartupSteps()[this.getCurrentProgressStep()].logs = errorMessage;
+      this.getStartupSteps()[this.getCurrentProgressStep()].hasError = true;
+
       this.handleError(error);
       this.$q.reject(error);
     });
 
     return startWorkspacePromise;
+  }
+
+  getDisplayMachineLog(log: any): string {
+    log = angular.fromJson(log);
+    if (angular.isObject(log)) {
+      return '[' + log.machineName + '] ' + log.content;
+    } else {
+      return log;
+    }
   }
 
   connectToExtensionServer(websocketURL: string, workspaceId: string): void {

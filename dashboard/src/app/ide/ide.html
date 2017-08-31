@@ -11,12 +11,60 @@
 
 -->
 
-<div flex class="open-ide-page" md-theme="maincontent-theme">
-  <div class="ide-page-loader"
-       layout="column" layout-align="center center">
-    <div ng-hide="ideCtrl.selectedWorkspaceExists">Workspace doesn't exist, unable to open IDE.</div>
-    <div class="ide-page-loader-content" ng-show="ideCtrl.selectedWorkspaceExists">
-      <img ng-src="{{branding.loaderURL}}">
+
+
+
+<md-content id="open-ide-page"
+            md-scroll-y flex
+            class="open-ide-progress">
+
+  <div ng-if="ideCtrl.isIdeStarting()">
+
+    <div id="open-ide-progress-panel" class="open-ide-progress-container">
+      <che-loader class="che-loader-panel" layout="column">
+        <!--crane and terminals-->
+        <div class="che-loader-animation-panel main-page" layout="row" flex>
+          <div layout="column"
+               hide-xs hide-sm
+               layout-align="end start">
+            <che-loader-crane che-all-steps="ideCtrl.getStartupSteps()"
+                              che-exclude-steps="[ideCtrl.getStartupSteps().length-1]"
+                              che-step="{{ideCtrl.getCurrentProgressStep()}}"
+                              che-switch-on-iteration="true">
+            </che-loader-crane>
+          </div>
+          <div layout="column"
+               layout-align="center center"
+               flex="auto">
+            <che-steps-container class="open-ide-progress-working-log"
+                                 che-all-steps="ideCtrl.getStartupSteps()"
+                                 che-current-step="ideCtrl.getCurrentProgressStep()"></che-steps-container>
+          </div>
+        </div>
+        <!--bottom bar-->
+        <div class="che-loader-bottom-bar" flex="none">
+          <div class="main-page" layout="row" layout-align="center stretch">
+            <div flex="50" layout="column" layout-align="end start">
+            </div>
+          </div>
+        </div>
+      </che-loader>
     </div>
+
   </div>
-</div>
+
+  <div ng-if="!ideCtrl.isIdeStarting()">
+
+      <div flex class="open-ide-container" md-theme="maincontent-theme">
+          <div class="ide-page-loader"
+               layout="column" layout-align="center center">
+            <div ng-hide="ideCtrl.selectedWorkspaceExists">Workspace doesn't exist, unable to open IDE.</div>
+            <div class="ide-page-loader-content" ng-show="ideCtrl.selectedWorkspaceExists">
+              <img ng-src="{{branding.loaderURL}}">
+            </div>
+          </div>
+        </div>
+
+  </div>
+
+</md-content>
