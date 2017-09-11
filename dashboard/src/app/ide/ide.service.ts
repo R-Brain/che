@@ -84,6 +84,7 @@ class IdeSvc {
     this.startupSteps = [
         {text: 'Starting workspace runtime', inProgressText: 'Retrieving the stack\'s image and launching it', logs: '', hasError: false},
         {text: 'Starting workspace agent', inProgressText: 'Agents provide RESTful services like intellisense and SSH', logs: '', hasError: false},
+        {text: 'Workspace started', inProgressText: 'Opening', logs: '', hasError: false}
     ];
     this.currentStartupStep = 0;
 
@@ -132,7 +133,8 @@ class IdeSvc {
     this.isStarting = isStarting;
   }
 
-  resetCreateProgress() {
+  resetStartingProgress() {
+    console.warn('resetStartingProgress');
     this.startupSteps.forEach((step) => {
       step.logs = '';
       step.hasError = false;
@@ -159,6 +161,8 @@ class IdeSvc {
   }
 
   startIde(workspace: any): ng.IPromise<any> {
+    (this.$rootScope as any).showIDE = false;
+
     if (this.lastWorkspace) {
       this.cleanupChannels(this.lastWorkspace.id);
     }
@@ -258,11 +262,11 @@ class IdeSvc {
 
       this.listeningChannels.push(agentChannel);
       bus.subscribe(agentChannel, (message: any) => {
-        if (this.getCurrentProgressStep() < 2) {
-          this.setCurrentProgressStep(2);
+        const agentStep = 1;
+        if (this.getCurrentProgressStep() < agentStep) {
+          this.setCurrentProgressStep(agentStep);
         }
 
-        const agentStep = 1;
         const step = this.getStartupSteps()[agentStep];
         if (step.logs.length > 0) {
           step.logs = step.logs + '\n' + message;

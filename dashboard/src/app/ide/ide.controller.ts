@@ -131,8 +131,8 @@ class IdeCtrl {
     this.ideSvc.setIdeStarting(true);
   }
 
-  resetCreateProgress(): void {
-    this.ideSvc.resetCreateProgress();
+  resetStartingProgress(): void {
+    this.ideSvc.resetStartingProgress();
   }
 
   /**
@@ -169,10 +169,11 @@ class IdeCtrl {
     if (this.selectedWorkspace) {
       const workspaceId = this.selectedWorkspace.id;
       if (this.selectedWorkspace.status === 'STOPPED') {
-        this.resetCreateProgress();
+        this.resetStartingProgress();
         this.setIdeStarting();
 
         this.ideSvc.startIde(this.selectedWorkspace).then(() => {
+          this.resetStartingProgress();
           this.ideSvc.openIde(workspaceId);
         });
       } else {

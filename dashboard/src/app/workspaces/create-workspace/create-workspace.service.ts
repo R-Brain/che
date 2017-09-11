@@ -167,7 +167,12 @@ export class CreateWorkspaceSvc {
     return this.checkEditingProgress().then(() => {
       return this.cheWorkspace.createWorkspaceFromConfig(namespaceId, workspaceConfig, attributes).then((workspace: che.IWorkspace) => {
 
-        return this.cheWorkspace.startWorkspace(workspace.id, workspace.config.defaultEnv).then(() => {
+        let bus = this.ideSvc.cheAPI.getWebsocket().getBus();
+        return this.ideSvc.startWorkspace(bus, workspace).then(() => {
+        // return this.cheWorkspace.startWorkspace(workspace.id, workspace.config.defaultEnv).then(() => {
+          this.ideSvc.resetStartingProgress();
+          this.ideSvc.setIdeStarting(true);
+
           this.redirectToIde(namespaceId, workspace);
           this.projectSourceSelectorService.clearAllSources();
 

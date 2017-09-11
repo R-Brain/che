@@ -718,6 +718,8 @@ export class WorkspaceDetailsController {
 
   runWorkspace(): void {
     this.errorMessage = '';
+    // this.ideSvc.resetStartingProgress();
+    // this.ideSvc.setIdeStarting(true);
 
     let promise = this.ideSvc.startIde(this.workspaceDetails);
     promise.catch((error: any) => {
