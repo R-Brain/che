@@ -57,7 +57,7 @@ export class FactoryConfig {
     // config files
     new FactoryDetailsConfig(register);
     new CreateFactoryConfig(register);
-    new LastFactoriesConfig(register);
+    // new LastFactoriesConfig(register);
   }
 }
 

@@ -16,9 +16,9 @@
                che-breadcrumb-title="All stacks"
                che-breadcrumb-href="#/stacks"
                che-subheader-title="{{stackController.stack.type}}">
-    <che-button-primary ng-disabled="!stackForm.$valid"
+    <!--che-button-primary ng-disabled="!stackForm.$valid"
                         che-button-title="Test" name="testButton"
-                        ng-click="stackController.showSelectTemplateDialog($event)"></che-button-primary>
+                        ng-click="stackController.showSelectTemplateDialog($event)"></che-button-primary-->
     <che-button-save-flat ng-disabled="!stackController.isStackChange || !stackForm.$valid"
                           che-button-title="Save" name="saveButton"
                           ng-click="stackController.saveStack()"></che-button-save-flat>
@@ -148,9 +148,9 @@
                                workspace-edit-disable-save-button="!stackForm.$valid"
                                workspace-edit-mode-on-save="stackController.saveStack()"
                                workspace-edit-mode-on-cancel="stackController.cancelStackChanges()">
-    <che-button-primary ng-disabled="!stackForm.$valid"
+    <!--che-button-primary ng-disabled="!stackForm.$valid"
                         che-button-title="Test" name="testButton"
-                        ng-click="stackController.showSelectTemplateDialog($event)"></che-button-primary>
+                        ng-click="stackController.showSelectTemplateDialog($event)"></che-button-primary-->
   </workspace-edit-mode-overlay>
 </ng-form>
 <md-content ng-show="stackController.invalidStack">
