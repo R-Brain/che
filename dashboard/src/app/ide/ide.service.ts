@@ -406,10 +406,11 @@ class IdeSvc {
       }
 
       if (workspace.runtime.devMachine.runtime.envVariables.RIDE) {
-        const idePort = this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8888/tcp.address').split(':')[1];
         const proxyPort = this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8080/tcp.address').split(':')[1];
-        const wsPort =  this.lodash.get(workspace, 'runtime.machines.0.runtime.servers.8081/tcp.address').split(':')[1];
-        let ideUrl = `${location.origin}:${idePort}/ride?websocket=${wsPort}&proxy=${proxyPort}`;
+        let ideUrl = `${location.origin}:${proxyPort}/p8080/ride`;
+        if (location.protocol == 'https:') {
+          ideUrl = `${location.origin}/ssl_${proxyPort}/p8080/ride`;
+        }
         (this.$rootScope as any).ideIframeLink = (this.$sce as any).trustAsResourceUrl(ideUrl);
       } else {
         if (inDevMode) {
